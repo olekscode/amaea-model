@@ -2,46 +2,155 @@ Class {
 	#name : 'FEBFoodInventory',
 	#superclass : 'Object',
 	#instVars : [
-		'availableAmount',
-		'pricePerUnit'
+		'batches',
+		'fridgeCapacity'
 	],
 	#category : 'FE_Beta-Model',
 	#package : 'FE_Beta-Model'
 }
 
-{ #category : 'accessing' }
-FEBFoodInventory >> availableAmount [
+{ #category : 'adding' }
+FEBFoodInventory >> addBatch: aBatch [
 
-	^ availableAmount
+	| existing |
+	existing := self findMergeableBatchFor: aBatch.
+	
+	existing
+		ifNil: [ batches add: aBatch ]
+		ifNotNil: [ existing addQuantity: aBatch quantity ]
 ]
 
 { #category : 'accessing' }
-FEBFoodInventory >> availableAmount: anObject [
+FEBFoodInventory >> batches [
 
-	availableAmount := anObject
-]
-
-{ #category : 'accessing' }
-FEBFoodInventory >> pricePerUnit [
-
-	^ pricePerUnit
-]
-
-{ #category : 'accessing' }
-FEBFoodInventory >> pricePerUnit: anObject [
-
-	pricePerUnit := anObject
+	^ batches 
 ]
 
 { #category : 'as yet unclassified' }
-FEBFoodInventory >> takeUpTo: requestedAmount withMoneyUpTo: availableMoney [
+FEBFoodInventory >> batchesExpiringSoon [
 
-	| amount affordableAmount |
-	amount := requestedAmount min: availableAmount.
+	^ self nonExpiredBatches select: [ :each | each willExpireSoon ]
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> batchesOfCategory: aCategory [
+
+	^ self nonExpiredBatches select: [ :each | each category = aCategory ]
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> becomeOneDayOlder [
+
+	batches do: [ :each | each becomeOneDayOlder ].
+	self removeExpiredBatched
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> extractOneUnitOfCategory: aCategory [
+
+	| batch extracted |
+	batch := self oldestBatchOfCategory: aCategory.
 	
-	affordableAmount := (availableMoney / pricePerUnit) asInteger.
-	amount := amount min: affordableAmount .
+	extracted := batch extractQuantity: 1.
+	self removeBatchIfEmpty: batch.
+	^ extracted
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> findMergeableBatchFor: aBatch [
+
+	^ batches
+		detect: [ :each |
+			each category = aBatch category
+				and: [ each isInFridge = aBatch isInFridge
+				and: [ each remainingDays = aBatch remainingDays ] ] ]
+		ifNone: [ nil ]
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> freeFridgeSpace [
 	
-	availableAmount := availableAmount - amount.
-	^ amount
+	^ fridgeCapacity - self quantityInFridge
+]
+
+{ #category : 'accessing' }
+FEBFoodInventory >> fridgeCapacity [
+
+	^ fridgeCapacity 
+]
+
+{ #category : 'accessing' }
+FEBFoodInventory >> fridgeCapacity: anInteger [
+
+	fridgeCapacity := anInteger
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> hasFood [
+
+	^ self nonExpiredBatches isNotEmpty
+]
+
+{ #category : 'initialization' }
+FEBFoodInventory >> initialize [
+	super initialize.
+	batches := OrderedCollection new.
+	fridgeCapacity := 0
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> nonExpiredBatches [
+
+	^ batches reject: [ :each | each isExpired ]
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> oldestBatchOfCategory: aCategory [
+
+	| candidates oldestBatch |	
+	candidates := self batchesOfCategory: aCategory.
+	
+	candidates ifEmpty: [ self error: 'There are no batches in this category' ].
+	
+	oldestBatch := candidates first.
+	
+	batches do: [ :each |
+		each remainingDays < oldestBatch remainingDays ifTrue: [ 
+			oldestBatch := each ] ].
+	
+	^ oldestBatch 
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> quantityInCategory: aCategory [
+
+	^ (self batchesOfCategory: aCategory)
+		sum: [ :each | each quantity ]
+		ifEmpty: [ 0 ]
+]
+
+{ #category : 'accessing' }
+FEBFoodInventory >> quantityInFridge [
+
+	^ (batches select: [ :each | each isInFridge ])
+		sum: [ :each | each quantity ]
+		ifEmpty: [ 0 ]
+]
+
+{ #category : 'removing' }
+FEBFoodInventory >> removeBatchIfEmpty: aBatch [
+
+	aBatch ifEmpty: [ batches remove: aBatch ]
+]
+
+{ #category : 'removing' }
+FEBFoodInventory >> removeExpiredBatched [
+
+	batches removeAllSuchThat: [ :each | each isExpired ]
+]
+
+{ #category : 'accessing' }
+FEBFoodInventory >> totalQuantity [
+
+	^ batches sum: [ :each | each quantity ] ifEmpty: [ 0 ]
 ]

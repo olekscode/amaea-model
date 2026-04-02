@@ -20,6 +20,20 @@ FEBFoodBatch class >> category: aCategory quantity: aNumber fridge: aBoolean [
 ]
 
 { #category : 'as yet unclassified' }
+FEBFoodBatch class >> category: aCategory quantity: aNumber fridge: aBoolean remainingDays: aNumberOfDays [
+	
+	^ self new
+		initializeCategory: aCategory quantity: aNumber fridge: aBoolean remainingDays: aNumberOfDays;
+		yourself
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodBatch >> addQuantity: anInteger [
+
+	quantity := quantity + anInteger 
+]
+
+{ #category : 'as yet unclassified' }
 FEBFoodBatch >> becomeOneDayOlder [
 
 	remainingDays := remainingDays - 1
@@ -32,6 +46,22 @@ FEBFoodBatch >> consume: anInteger [
 	quantity := quantity - anInteger 
 ]
 
+{ #category : 'as yet unclassified' }
+FEBFoodBatch >> extractQuantity: anInteger [
+
+	| extracted |
+	anInteger > quantity ifTrue: [ self error: 'Not enough quantity in the food batch!' ].
+	
+	extracted := self class
+		category: category
+		quantity: anInteger
+		fridge: isInFridge
+		remainingDays: remainingDays.
+		
+	quantity := quantity - anInteger.
+	^ extracted 
+]
+
 { #category : 'accessing' }
 FEBFoodBatch >> initializeCategory: aCategory quantity: aNumber fridge: aBoolean [
 
@@ -42,6 +72,13 @@ FEBFoodBatch >> initializeCategory: aCategory quantity: aNumber fridge: aBoolean
 	quantity := aNumber.
 	isInFridge := aBoolean.
 	remainingDays := aCategory shelfLifeGivenFridge: isInFridge 
+]
+
+{ #category : 'accessing' }
+FEBFoodBatch >> initializeCategory: aCategory quantity: aNumber fridge: aBoolean remainingDays: aNumberOfDays [
+
+	self initializeCategory: aCategory quantity: aNumber fridge: aBoolean. 
+	remainingDays := aNumberOfDays
 ]
 
 { #category : 'testing' }
@@ -99,6 +136,12 @@ FEBFoodBatch >> moveToFridge: aBoolean [
 FEBFoodBatch >> quantity [
 
 	^ quantity 
+]
+
+{ #category : 'accessing' }
+FEBFoodBatch >> remainingDays [
+
+	^ remainingDays
 ]
 
 { #category : 'as yet unclassified' }

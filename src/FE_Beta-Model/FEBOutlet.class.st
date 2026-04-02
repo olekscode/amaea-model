@@ -14,8 +14,8 @@ FEBOutlet >> initialize [
 
 	super initialize.
 
-	healthyFoodInventory := FEBFoodInventory new.
-	conventionalFoodInventory := FEBFoodInventory new.
+	healthyFoodInventory := FEBFoodInventoryOld new.
+	conventionalFoodInventory := FEBFoodInventoryOld new.
 
 	healthyFoodInventory pricePerUnit: 15.
 	conventionalFoodInventory pricePerUnit: 5.
