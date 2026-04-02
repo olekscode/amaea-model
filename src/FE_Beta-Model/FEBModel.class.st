@@ -2,7 +2,8 @@ Class {
 	#name : 'FEBModel',
 	#superclass : 'CMAbstractModel',
 	#instVars : [
-		'listOfOutlets'
+		'listOfOutlets',
+		'foodCategories'
 	],
 	#category : 'FE_Beta-Model',
 	#package : 'FE_Beta-Model'
@@ -18,6 +19,18 @@ FEBModel class >> modelName [
 FEBModel class >> prefix [
 
 	^ 'FEB'
+]
+
+{ #category : 'accessing' }
+FEBModel >> foodCategories [
+
+	^ foodCategories
+]
+
+{ #category : 'accessing' }
+FEBModel >> foodCategoryNamed: aString [
+
+	^ foodCategories detect: [ :each | each name = aString ]
 ]
 
 { #category : 'accessing' }
@@ -38,7 +51,8 @@ FEBModel >> init [
 		
 	plots := self @@ FEBCell.
 	
-	self initializeAgents .
+	self initializeFoodCategories.
+	self initializeAgents.
 
 ]
 
@@ -56,24 +70,49 @@ FEBModel >> initializeAgents [
 ]
 
 { #category : 'initialization' }
+FEBModel >> initializeFoodCategories [
+
+	foodCategories := OrderedCollection withAll: {
+		FEBFoodCategory
+			named: 'Meat'
+			shelfLifeInFridge: 5
+			outsideFridge: 2.
+			
+		FEBFoodCategory
+			named: 'Vegetables'
+			shelfLifeInFridge: 7
+			outsideFridge: 3.
+			
+		FEBFoodCategory
+			named: 'Rice'
+			shelfLifeInFridge: 30
+			outsideFridge: 30.
+			
+		FEBFoodCategory
+			named: 'Dairy'
+			shelfLifeInFridge: 6
+			outsideFridge: 2
+	}
+]
+
+{ #category : 'initialization' }
 FEBModel >> initializePreferences [
 
-	"You can change this number to be different than 50%"
-	| proportion numberOfAgents shuffledAgents |
+	| preferenceA preferenceB preferenceC |
 	
-	"Create a copy of agents collection where agents are shuffled randomly. Now if we take the first half of that collection, this will give us exactly 50% of agents selected randomly. And the second half is another 50%"
-	shuffledAgents := self agents asOrderedCollection shuffle.
-	
-	proportion := 0.5.
-	numberOfAgents := self agents size.
+	preferenceA := #('Meat' 'Rice' 'Vegetables' 'Dairy')
+		collect: [ :name | self foodCategoryNamed: name ].
+		
+	preferenceB := #('Rice' 'Dairy' 'Vegetables' 'Meat')
+		collect: [ :name | self foodCategoryNamed: name ].
+		
+	preferenceC := #('Vegetables' 'Rice' 'Meat' 'Dairy')
+		collect: [ :name | self foodCategoryNamed: name ].
 
-	"First part - from 1 to p*N where N is the number of agents and p is proportion"
-	(1 to: (proportion * numberOfAgents) asInteger) do: [ :i |
-		(shuffledAgents at: i) preferHealthy ].
-
-	"Second part - from p*N to N (all other agents)"
-	((proportion * numberOfAgents) asInteger to: numberOfAgents) do: [ :i |
-		(shuffledAgents at: i) preferConventional ].
+	(self shuffled: self households) withIndexDo: [ :household :index |
+		index % 3 = 1 ifTrue: [ household foodPreferenceOrder: preferenceA copy ].
+		index % 3 = 2 ifTrue: [ household foodPreferenceOrder: preferenceB copy ].
+		index % 3 = 0 ifTrue: [ household foodPreferenceOrder: preferenceC copy ] ]
 ]
 
 { #category : 'initialization' }

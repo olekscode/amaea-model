@@ -2,6 +2,8 @@ Class {
 	#name : 'FEBHousehold',
 	#superclass : 'CMAgent',
 	#instVars : [
+		'inventory',
+		'foodPreferenceOrder',
 		'foodStorage',
 		'satisfactionMemory',
 		'hungerMemory',
@@ -168,17 +170,38 @@ FEBHousehold >> buyFoodUpTo: aFoodAmount forMoneyUpTo: aMoneyAmount from: anOutl
 ]
 
 { #category : 'as yet unclassified' }
+FEBHousehold >> chooseBatchForNextMeal [
+
+	| candidates sortedCandidates |
+	candidates := inventory nonExpiredBatches
+		select: [ :each | each isNotEmpty ].
+		
+	candidates ifEmpty: [ ^ nil ].
+	
+	sortedCandidates := candidates sorted: [ :a :b |
+		a remainingDays < b remainingDays or: [ 
+			a remainingDays = b remainingDays and: [ 
+				(self preferenceRankingOf: a) < (self preferenceRankingOf: b) ] ] ].
+	
+	^ sortedCandidates first
+]
+
+{ #category : 'as yet unclassified' }
 FEBHousehold >> consumeFood [
 	<action>
-	foodStorage >= dailyNeed
-		ifTrue: [
-			"If hh has enough food to satisfy daily need so no hunger"
-			foodStorage := foodStorage - dailyNeed . 
-			hungerMemory := 0 ] 
-		ifFalse: [
-			"Hh has not enough food to satisfy daily need so eats what it has and there is hunger"
-			foodStorage := 0 .
-			hungerMemory := hungerMemory + 1 ].
+	| eatenCategories chosenBatch |
+	eatenCategories := OrderedCollection new.
+	
+	1 to: 3 do: [ :i |
+		chosenBatch := self chooseBatchForNextMeal.
+		
+		chosenBatch ifNotNil: [ 
+			inventory extractOneUnitFromBatch: chosenBatch.
+			eatenCategories add: chosenBatch category ] ].
+	
+	self updateHungerMemoryAfterEating: eatenCategories.
+	
+	^ eatenCategories
 ]
 
 { #category : 'as yet unclassified' }
@@ -199,6 +222,12 @@ FEBHousehold >> doesPreferHealthy [
 	
 ]
 
+{ #category : 'accessing' }
+FEBHousehold >> foodPreferenceOrder: aCollection [
+
+	foodPreferenceOrder := aCollection 
+]
+
 { #category : 'asserting' }
 FEBHousehold >> goShopping [
 <action> 
@@ -214,6 +243,12 @@ FEBHousehold >> hasFoodForOneDay [
 ^ foodStorage >= (1 * dailyNeed )
 ]
 
+{ #category : 'as yet unclassified' }
+FEBHousehold >> hasUrgentFoodOfCategory: aCategory [
+
+	^ inventory hasBatchExpiringSoonOfCategory: aCategory
+]
+
 { #category : 'accessing' }
 FEBHousehold >> householdSize [
 
@@ -226,8 +261,11 @@ FEBHousehold >> initialize [
 	super initialize.
 	
 	householdSize := self
-		                 randomIntegerBetween: self class minHouseholdSize
-		                 and: self class maxHouseholdSize.
+		randomIntegerBetween: self class minHouseholdSize
+			and: self class maxHouseholdSize.
+			
+	inventory := FEBFoodInventory new.
+	foodPreferenceOrder := OrderedCollection new.
 		
 	satisfactionMemory := 2.
 	hungerMemory := 0.
@@ -235,7 +273,7 @@ FEBHousehold >> initialize [
 	"3 meals times the number of persons in the household"
 	dailyNeed := 3 * householdSize. 
 	"Since HH consume food before buying it and then buy food for next day, they must be created with enough food for one day (the first food consumption)."
-	foodStorage := dailyNeed . 
+	foodStorage := dailyNeed. 
 
 	
 	"available for getting food"
@@ -254,6 +292,12 @@ FEBHousehold >> initialize [
 	self beMoneySaver.
 	
 	
+]
+
+{ #category : 'accessing' }
+FEBHousehold >> inventory [
+
+	^ inventory
 ]
 
 { #category : 'as yet unclassified' }
@@ -360,6 +404,14 @@ FEBHousehold >> preferHealthy [
 	
 ]
 
+{ #category : 'as yet unclassified' }
+FEBHousehold >> preferenceRankOf: aCategory [
+
+	foodPreferenceOrder
+		indexOf: aCategory
+		ifAbsent: [ self error: 'All categories must appear in the preference list' ]
+]
+
 { #category : 'accessing' }
 FEBHousehold >> reconsiderPreference [
 
@@ -425,6 +477,14 @@ FEBHousehold >> unvisitedOutletClosestTo: aCell [
 	
 	^ sortedUnvisitedOutlets first
 	
+]
+
+{ #category : 'as yet unclassified' }
+FEBHousehold >> updateHungerMemoryAfterEating: aCollectionOfCategories [
+
+	aCollectionOfCategories size < 3
+		ifTrue: [ hungerMemory := hungerMemory + 1 ]
+		ifFalse: [ hungerMemory := 0 ]
 ]
 
 { #category : 'as yet unclassified' }

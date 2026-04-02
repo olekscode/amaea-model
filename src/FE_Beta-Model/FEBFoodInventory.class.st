@@ -46,13 +46,11 @@ FEBFoodInventory >> becomeOneDayOlder [
 ]
 
 { #category : 'as yet unclassified' }
-FEBFoodInventory >> extractOneUnitOfCategory: aCategory [
+FEBFoodInventory >> extractOneUnitFromBatch: aBatch [
 
-	| batch extracted |
-	batch := self oldestBatchOfCategory: aCategory.
-	
-	extracted := batch extractQuantity: 1.
-	self removeBatchIfEmpty: batch.
+	| extracted |
+	extracted := aBatch extractQuantity: 1.
+	self removeBatchIfEmpty: aBatch.
 	^ extracted
 ]
 
@@ -83,6 +81,13 @@ FEBFoodInventory >> fridgeCapacity [
 FEBFoodInventory >> fridgeCapacity: anInteger [
 
 	fridgeCapacity := anInteger
+]
+
+{ #category : 'testing' }
+FEBFoodInventory >> hasBatchExpiringSoonOfCategory: aCategory [
+
+	^ (self batchesOfCategory: aCategory)
+		anySatisfy: [ :each | each willExpireSoon ]
 ]
 
 { #category : 'as yet unclassified' }
@@ -119,6 +124,20 @@ FEBFoodInventory >> oldestBatchOfCategory: aCategory [
 			oldestBatch := each ] ].
 	
 	^ oldestBatch 
+]
+
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> quantitiesByCategory [
+
+	| dict |
+	dict := Dictionary new.
+	
+	self nonExpiredBatches do: [ :each |
+		dict
+			at: each category
+			put: ((dict at: each category ifAbsent: [ 0 ]) + each quantity) ].
+		
+	^ dict
 ]
 
 { #category : 'as yet unclassified' }

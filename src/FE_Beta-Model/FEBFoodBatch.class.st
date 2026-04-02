@@ -39,6 +39,12 @@ FEBFoodBatch >> becomeOneDayOlder [
 	remainingDays := remainingDays - 1
 ]
 
+{ #category : 'accessing' }
+FEBFoodBatch >> category [
+
+	^ category
+]
+
 { #category : 'as yet unclassified' }
 FEBFoodBatch >> consume: anInteger [
 
@@ -97,6 +103,12 @@ FEBFoodBatch >> isExpired [
 FEBFoodBatch >> isInFridge [
 
 	^ isInFridge
+]
+
+{ #category : 'testing' }
+FEBFoodBatch >> isNotEmpty [
+
+	^ self isEmpty not
 ]
 
 { #category : 'as yet unclassified' }
