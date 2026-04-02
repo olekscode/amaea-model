@@ -46,13 +46,6 @@ FEBFoodBatch >> category [
 ]
 
 { #category : 'as yet unclassified' }
-FEBFoodBatch >> consume: anInteger [
-
-	anInteger > quantity ifTrue: [ self error: 'Not enough quantity in batch' ].
-	quantity := quantity - anInteger 
-]
-
-{ #category : 'as yet unclassified' }
 FEBFoodBatch >> extractQuantity: anInteger [
 
 	| extracted |
