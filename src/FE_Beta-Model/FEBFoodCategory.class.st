@@ -70,3 +70,9 @@ FEBFoodCategory >> shelfLifeOutsideFridge: anObject [
 
 	shelfLifeOutsideFridge := anObject
 ]
+
+{ #category : 'asserting' }
+FEBFoodCategory >> shouldBeStoredInFridge [
+
+	^ shelfLifeOutsideFridge <= 2 and: [ shelfLifeInFridge > 2 ]
+]
