@@ -3,7 +3,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'batches',
-		'fridgeCapacity'
+		'fridgeCapacity',
+		'trashbin'
 	],
 	#category : 'FE_Beta-Model',
 	#package : 'FE_Beta-Model'
@@ -106,6 +107,7 @@ FEBFoodInventory >> hasFoodInCategory: aCategory [
 FEBFoodInventory >> initialize [
 	super initialize.
 	batches := OrderedCollection new.
+	trashbin := OrderedCollection new.
 	fridgeCapacity := 0
 ]
 
@@ -183,7 +185,13 @@ FEBFoodInventory >> removeEmptyBatches [
 { #category : 'removing' }
 FEBFoodInventory >> removeExpiredBatched [
 
-	batches removeAllSuchThat: [ :each | each isExpired ]
+	| expiredBatches |
+	expiredBatches := batches select: [ :each | each isExpired ].
+	
+	expiredBatches do: [ :each |
+		batches remove: each.
+		trashbin add: each ]
+
 ]
 
 { #category : 'accessing' }
