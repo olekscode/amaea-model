@@ -137,20 +137,6 @@ FEBModel >> initializeStrategies [
 ]
 
 { #category : 'as yet unclassified' }
-FEBModel >> numberOfConventionalHouseholds [
-
-	<probeNamed: 'Number of conventional households' color: #orange>
-	^ self households count: #doesPreferConventional
-]
-
-{ #category : 'as yet unclassified' }
-FEBModel >> numberOfHealthyHouseholds [
-
-	<probeNamed: 'Number of healthy households' color: #purple>
-	^ self households count: #doesPreferHealthy
-]
-
-{ #category : 'as yet unclassified' }
 FEBModel >> numberOfHungryPeople [
 
 	<probeNamed: 'Number of hungry people' color: #red>
@@ -189,8 +175,7 @@ FEBModel >> step [
 
 	<control>
 	(self @@ FEBHousehold) shuffled do: #step.
-
-	(self @@ FEBOutlet) shuffled do: #restock.
+	(self @@ FEBOutlet) shuffled do: #step.
 ]
 
 { #category : 'as yet unclassified' }
