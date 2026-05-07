@@ -97,6 +97,12 @@ FEBFoodInventory >> hasFood [
 	^ self nonExpiredBatches isNotEmpty
 ]
 
+{ #category : 'as yet unclassified' }
+FEBFoodInventory >> hasFoodInCategory: aCategory [
+
+	^ (self quantityInCategory: aCategory) > 0
+]
+
 { #category : 'initialization' }
 FEBFoodInventory >> initialize [
 	super initialize.
@@ -159,9 +165,21 @@ FEBFoodInventory >> quantityInFridge [
 ]
 
 { #category : 'removing' }
+FEBFoodInventory >> removeBatch: aBatch [
+
+	batches remove: aBatch
+]
+
+{ #category : 'removing' }
 FEBFoodInventory >> removeBatchIfEmpty: aBatch [
 
-	aBatch ifEmpty: [ batches remove: aBatch ]
+	aBatch isEmpty ifTrue: [ self removeBatch: aBatch ]
+]
+
+{ #category : 'removing' }
+FEBFoodInventory >> removeEmptyBatches [
+
+	batches do: [ :batch | self removeBatchIfEmpty: batch ]
 ]
 
 { #category : 'removing' }

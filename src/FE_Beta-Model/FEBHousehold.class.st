@@ -4,18 +4,16 @@ Class {
 	#instVars : [
 		'inventory',
 		'foodPreferenceOrder',
-		'foodStorage',
 		'satisfactionMemory',
 		'hungerMemory',
 		'outlets',
-		'unvisitedOutlets',
 		'availableMoneyPerStep',
 		'remainingMoney',
 		'householdSize',
-		'preference',
 		'availableTimePerStep',
 		'remainingTime',
 		'strategy',
+		'shoppingStrategy',
 		'dailyNeed'
 	],
 	#classInstVars : [
@@ -59,9 +57,15 @@ FEBHousehold class >> minHouseholdSize: anObject [
 ]
 
 { #category : 'as yet unclassified' }
-FEBHousehold >> availableMoney [
+FEBHousehold >> availableMoneyForStorage [
+	"Money that can be used to buy food for storage (the non-essential food)"
+	^ remainingMoney - (availableMoneyPerStep * self moneyThreshold)
+]
 
-	^ remainingMoney 
+{ #category : 'accessing' }
+FEBHousehold >> availableTimePerStep [
+
+	^ availableTimePerStep
 ]
 
 { #category : 'as yet unclassified' }
@@ -88,85 +92,36 @@ FEBHousehold >> beTimeSaver [
 	strategy := FEBTimeSaverStrategy new
 ]
 
+{ #category : 'as yet unclassified' }
+FEBHousehold >> buildShoppingList [
+
+	| shoppingList missingMeals category |
+	shoppingList := FEBShoppingList new.
+	
+	"First get essential meals. As many as we need to have food for 1 day"
+	missingMeals := (dailyNeed - self totalUsableFoodQuantity) max: 0.
+	
+	1 to: missingMeals do: [ :i |
+		category := foodPreferenceOrder at: ((i - 1) \\ foodPreferenceOrder size) + 1.
+		shoppingList addEssentialNeedOf: category quantity: 1 ].
+	
+	"Then get another day worth of food for storage"
+	1 to: dailyNeed do: [ :i |
+		category := foodPreferenceOrder at: ((i - 1) \\ foodPreferenceOrder size) + 1.
+		shoppingList addStorageNeedOf: category quantity: 1 ].
+	
+	^ shoppingList
+	
+	
+]
+
 { #category : 'accessing' }
-FEBHousehold >> buyAmountOfFood: amount for: moneySpent [
+FEBHousehold >> buyFoodBatches: batches for: moneySpent [
+
+	batches do: [ :each |
+		inventory addBatch: each ].
 
 	remainingMoney := remainingMoney - moneySpent.
-	foodStorage := foodStorage + amount.
-]
-
-{ #category : 'accessing' }
-FEBHousehold >> buyFood [
-
-	| outlet currentCell timeToTravel |
-	unvisitedOutlets := outlets copy.
-	currentCell := self cell.
-
-	[ unvisitedOutlets isEmpty ] whileFalse: [
-			outlet := self unvisitedOutletClosestTo: currentCell.
-			timeToTravel := currentCell timeToTravelTo: outlet cell.
-			
-			self hasFoodForOneDay 
-				ifTrue: [ "Buying for storage"
-					timeToTravel > (remainingTime - (availableTimePerStep * self timeThreshold ))
-						ifTrue: [ ^ self ].
-					
-					"Travel to outlet"
-					currentCell := outlet cell.
-					unvisitedOutlets remove: outlet.
-					remainingTime := remainingTime - timeToTravel.
-					
-					self buyFoodForStorageFrom: outlet ]
-				ifFalse: [ "Buying for one day and for storage"
-					timeToTravel > remainingTime 
-						ifTrue: [ ^ self ].
-						
-					"Travel to outlet"
-					currentCell := outlet cell.
-					unvisitedOutlets remove: outlet.
-					remainingTime := remainingTime - timeToTravel.
-					
-					self buyFoodForOneDayFrom: outlet.
-					self buyFoodForStorageFrom: outlet ].
-			 ].
-]
-
-{ #category : 'accessing' }
-FEBHousehold >> buyFoodForOneDayFrom: outlet [ 
-	| foodAmount moneyAmount |
-	
-	"For now we are trying to buy an infinite amount of food for the money we have (up to the money threshold). Later we will not buy more than the storage capacity"
-	foodAmount := dailyNeed . 
-	moneyAmount := remainingMoney .
-	
-	self buyFoodUpTo: foodAmount forMoneyUpTo: moneyAmount from: outlet
-]
-
-{ #category : 'accessing' }
-FEBHousehold >> buyFoodForStorageFrom: outlet [ 
-	| foodAmount moneyAmount |
-	
-	"For now we are trying to buy an infinite amount of food for the money we have (up to the money threshold). Later we will not buy more than the storage capacity"
-	foodAmount := Float infinity. 
-	moneyAmount := remainingMoney - ( availableMoneyPerStep * self moneyThreshold ).
-	
-	self buyFoodUpTo: foodAmount forMoneyUpTo: moneyAmount from: outlet
-		
-	
-	
-]
-
-{ #category : 'accessing' }
-FEBHousehold >> buyFoodUpTo: aFoodAmount forMoneyUpTo: aMoneyAmount from: anOutlet [
-	
-	aMoneyAmount < 0 ifTrue: [^self].
-	 
-	self doesPreferHealthy 
-		ifTrue: [anOutlet sellHealthyFoodUpTo: aFoodAmount withMoneyUpTo: aMoneyAmount to: self ] 
-		ifFalse: [anOutlet sellConventionalFoodUpTo: aFoodAmount withMoneyUpTo: aMoneyAmount to: self ] 
-		
-	
-	
 ]
 
 { #category : 'as yet unclassified' }
@@ -181,7 +136,7 @@ FEBHousehold >> chooseBatchForNextMeal [
 	sortedCandidates := candidates sorted: [ :a :b |
 		a remainingDays < b remainingDays or: [ 
 			a remainingDays = b remainingDays and: [ 
-				(self preferenceRankingOf: a) < (self preferenceRankingOf: b) ] ] ].
+				(self preferenceRankingOf: a category) < (self preferenceRankingOf: b category) ] ] ].
 	
 	^ sortedCandidates first
 ]
@@ -192,7 +147,7 @@ FEBHousehold >> consumeFood [
 	| eatenCategories chosenBatch |
 	eatenCategories := OrderedCollection new.
 	
-	1 to: 3 do: [ :i |
+	1 to: dailyNeed do: [ :i |
 		chosenBatch := self chooseBatchForNextMeal.
 		
 		chosenBatch ifNotNil: [ 
@@ -204,35 +159,22 @@ FEBHousehold >> consumeFood [
 	^ eatenCategories
 ]
 
-{ #category : 'as yet unclassified' }
-FEBHousehold >> doesPreferConventional [
-"is a state: household prefers conventional food"
-	"^ self satisfactionMemory < 3."
-	
-	^ preference = #preferConventional
-	
-]
-
-{ #category : 'as yet unclassified' }
-FEBHousehold >> doesPreferHealthy [
-
-	"^ self satisfactionMemory >= 3."
-	
-	^ preference = #preferHealthy
-	
-]
-
 { #category : 'accessing' }
 FEBHousehold >> foodPreferenceOrder: aCollection [
 
-	foodPreferenceOrder := aCollection 
+	foodPreferenceOrder := aCollection.
+	
+	"Inventory is initialized when foodPreference is set because it needs to have food for one day, and we must specify the category of that food"
+	self initializeInventory. 
 ]
 
 { #category : 'asserting' }
 FEBHousehold >> goShopping [
-<action> 
+	<action> 
+	| shoppingList |
 	self resetRemainingTimeAndMoney.
-	self buyFood.
+	shoppingList := self buildShoppingList.
+	shoppingStrategy shopFor: self using: shoppingList.
 	self updateSatisfactionMemory.
 	self reconsiderPreference.
 ]
@@ -240,7 +182,7 @@ FEBHousehold >> goShopping [
 { #category : 'asserting' }
 FEBHousehold >> hasFoodForOneDay [	
 
-^ foodStorage >= (1 * dailyNeed )
+	^ inventory totalQuantity >= (1 * dailyNeed)
 ]
 
 { #category : 'as yet unclassified' }
@@ -263,8 +205,7 @@ FEBHousehold >> initialize [
 	householdSize := self
 		randomIntegerBetween: self class minHouseholdSize
 			and: self class maxHouseholdSize.
-			
-	inventory := FEBFoodInventory new.
+	
 	foodPreferenceOrder := OrderedCollection new.
 		
 	satisfactionMemory := 2.
@@ -272,9 +213,6 @@ FEBHousehold >> initialize [
 	
 	"3 meals times the number of persons in the household"
 	dailyNeed := 3 * householdSize. 
-	"Since HH consume food before buying it and then buy food for next day, they must be created with enough food for one day (the first food consumption)."
-	foodStorage := dailyNeed. 
-
 	
 	"available for getting food"
 	availableMoneyPerStep := 100.
@@ -283,15 +221,26 @@ FEBHousehold >> initialize [
 	"We need to do this to make sure that everyone is satisfied at init -> for the probe to work"
 	self resetRemainingTimeAndMoney.
 	
-	"by default households prefer conventional just to avoid it to be nil.
-	Init in the model will assign the proportions of preferences"
-	self preferConventional.
-	
 	"by default households prefers to save money just to avoid it to be nil.
 	Init in the model will assign the proportions of preferences"
 	self beMoneySaver.
 	
+	shoppingStrategy := FEBSimpleShoppingStrategy new.
 	
+	
+]
+
+{ #category : 'initialization' }
+FEBHousehold >> initializeInventory [
+
+	inventory := FEBFoodInventory new.
+	inventory fridgeCapacity: (self randomIntegerBetween: 0 and: 6).
+	
+	"Since HH consume food before buying it and then buy food for next day, they must be created with enough food for one day (the first food consumption)."
+	inventory addBatch: (FEBFoodBatch
+		category: foodPreferenceOrder first
+		quantity: dailyNeed
+		fridge: false).
 ]
 
 { #category : 'accessing' }
@@ -337,6 +286,14 @@ FEBHousehold >> isTimeSaver [
 	^ strategy isTimeSaver
 ]
 
+{ #category : 'accessing' }
+FEBHousehold >> maximumDesiredQuantityOf: aFoodCategory [
+
+	^ aFoodCategory shouldBeStoredInFridge
+		ifTrue: [ 1 + inventory freeFridgeSpace ]
+		ifFalse: [ 10 "magic number" ]
+]
+
 { #category : 'as yet unclassified' }
 FEBHousehold >> moneyThreshold [
 
@@ -357,22 +314,6 @@ FEBHousehold >> outlets: aCollection [
 
 { #category : 'accessing' }
 FEBHousehold >> pov [
-
-	<pov>
-	| color |
-
-	self doesPreferConventional ifTrue: [ color := Color orange ].
-	self doesPreferHealthy ifTrue: [ color := Color purple ].
-
-	^ CMPointOfView
-		color: color
-		shape: self shapeOfPovBasedOnStrategy
-		size: self sizeOfPovBasedOnHouseholdSize
-]
-
-{ #category : 'accessing' }
-FEBHousehold >> povSatisfaction [
-
 	<pov>
 	| color |
 
@@ -387,27 +328,9 @@ FEBHousehold >> povSatisfaction [
 ]
 
 { #category : 'as yet unclassified' }
-FEBHousehold >> preferConventional [
-"is a state: household prefers conventional food"
-	"^ self satisfactionMemory < 3."
-	
-	preference := #preferConventional
-	
-]
+FEBHousehold >> preferenceRankingOf: aCategory [
 
-{ #category : 'as yet unclassified' }
-FEBHousehold >> preferHealthy [
-
-	"^ self satisfactionMemory >= 3."
-	
-	preference := #preferHealthy
-	
-]
-
-{ #category : 'as yet unclassified' }
-FEBHousehold >> preferenceRankOf: aCategory [
-
-	foodPreferenceOrder
+	^ foodPreferenceOrder
 		indexOf: aCategory
 		ifAbsent: [ self error: 'All categories must appear in the preference list' ]
 ]
@@ -415,11 +338,25 @@ FEBHousehold >> preferenceRankOf: aCategory [
 { #category : 'accessing' }
 FEBHousehold >> reconsiderPreference [
 
-	self doesPreferHealthy ifTrue: [
-		satisfactionMemory = 0 ifTrue: [ self preferConventional ] ].
+	self flag: 'TODO'
+]
 
-	self doesPreferConventional ifTrue: [
-		satisfactionMemory > 3 ifTrue: [ self preferHealthy ] ]
+{ #category : 'as yet unclassified' }
+FEBHousehold >> remainingMoney [
+
+	^ remainingMoney 
+]
+
+{ #category : 'accessing' }
+FEBHousehold >> remainingTime [
+
+	^ remainingTime
+]
+
+{ #category : 'accessing' }
+FEBHousehold >> remainingTime: aTime [
+
+	remainingTime := aTime
 ]
 
 { #category : 'accessing' }
@@ -438,7 +375,7 @@ FEBHousehold >> shapeOfPovBasedOnStrategy [
 { #category : 'asserting' }
 FEBHousehold >> shouldGoShopping [
 
-^ self hasFoodForOneDay not
+	^ self hasFoodForOneDay not
 ]
 
 { #category : 'accessing' }
@@ -457,7 +394,9 @@ FEBHousehold >> step [
 	self consumeFood.
 	
 	self shouldGoShopping ifTrue: [ 
-		self goShopping ]
+		self goShopping ].
+	
+	inventory becomeOneDayOlder
 
 ]
 
@@ -467,22 +406,18 @@ FEBHousehold >> timeThreshold [
 	^ strategy timeThreshold
 ]
 
-{ #category : 'as yet unclassified' }
-FEBHousehold >> unvisitedOutletClosestTo: aCell [
+{ #category : 'accessing' }
+FEBHousehold >> totalUsableFoodQuantity [
 
-	| sortedUnvisitedOutlets |
-	
-	sortedUnvisitedOutlets := unvisitedOutlets sorted: [ :a :b |
-		(a cell distanceTo: aCell) < (b cell distanceTo: aCell) ].
-	
-	^ sortedUnvisitedOutlets first
-	
+	^ inventory nonExpiredBatches
+		sum: [ :each | each quantity ]
+		ifEmpty: [ 0 ]
 ]
 
 { #category : 'as yet unclassified' }
 FEBHousehold >> updateHungerMemoryAfterEating: aCollectionOfCategories [
 
-	aCollectionOfCategories size < 3
+	aCollectionOfCategories size < dailyNeed 
 		ifTrue: [ hungerMemory := hungerMemory + 1 ]
 		ifFalse: [ hungerMemory := 0 ]
 ]
